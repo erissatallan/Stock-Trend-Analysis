@@ -1,18 +1,20 @@
-# region imports
-from AlgorithmImports import *
-# endregion
 
+from AlgorithmImports import *
+
+
+# a class to trade to S&P 500, ticker symbol SPY.
 class SPY_TRADER(QCAlgorithm):
 
     def Initialize(self):
         self.SetStartDate(2022, 1, 1)
         self.SetEndDate(2023, 1, 1)
         self.SetCash(100000)
-
         spy = self.AddEquity("SPY", Resolution.Daily)
+        self.spy = spy.Symbol  # saving the symbol object of SPY into a new variable
+
         spy.SetDataNormalizationMode(DataNormalizationMode.Raw)
 
-        self.spy = spy.Symbol  # saving the symbol object of SPY into a new variable
+        # set the benchmark index against which to compare the performance of our trading algorithm
         self.SetBenchmark("SPY")
 
         # a brokerage model adjusts the fee structure to that of the selected brokerage
@@ -23,6 +25,7 @@ class SPY_TRADER(QCAlgorithm):
         self.period = timedelta(31)
         self.nextEntryTime = self.Time  # when to re-enter a long SPY position
 
+
     # event handler called every time algorithm receives data: tick/ end bar
     def OnData(self, data: Slice):
         if not self.spy in data:
@@ -31,6 +34,8 @@ class SPY_TRADER(QCAlgorithm):
         price = data[self.spy].Close
 
         if not self.Portfolio.Invested:
+
+            # checking if the current time has reached or passed the time for the next entry
             if self.nextEntryTime <= self.Time:
                 # self.SetHoldings(self.spy, 1)
                 self.MarketOrder(self.spy, -int(self.Portfolio.Cash / price))
