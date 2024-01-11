@@ -22,7 +22,7 @@ class SPY_TRADER(QCAlgorithm):
         self.SetBrokerageModel(BrokerageName.InteractiveBrokersBrokerage, AccountType.Margin)
 
         self.entryPrice = 0
-        self.period = timedelta(31)
+        self.period = timedelta(7)
         self.nextEntryTime = self.Time  # when to re-enter a long SPY position
 
 

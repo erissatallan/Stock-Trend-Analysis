@@ -1,12 +1,13 @@
 
 """     Strategy
-Buy and hold a stock or Exchange Traded Fund (ETF) with a stop loss executed when the stock drop to 5%
-below its present price. If the stop loss is hit, exit the position the resume trading after a month.
-The one month wait is time given for the instrument to step out of the prevailing trend.
+Buy and hold a stock or Exchange Traded Fund (ETF) with a stop loss executed when the security drops to 5%
+below its present price. If the stop loss is hit, exit the position the resume trading after a business-week.
+The wait is time given for the instrument to step out of the prevailing trend.
 
 """
 
 from AlgorithmImports import *
+
 
 class TradingStrategy2(QCAlgorithm):
 
@@ -19,20 +20,25 @@ class TradingStrategy2(QCAlgorithm):
 
         # ticket objects are used to access
         self.entryTicket = None
-        self.stopMarketTicket = None
-        self.entryTime = datetime.min
+        self.stopMarketTicket = None  # the stop order is a market order; executes at the closest possible prices
+        self.entryTime = datetime.min  # earliest possible date, since no orders have been filled yet
         self.stopMarketOrderFillTime = datetime.min
-        self.higherPrice = 0
+        self.higherPrice = 0  # needed to evaluate when to execute the trailing stop loss order
+
+        # to ensure that there is always a buffer of cash in the account/ there is always buying power
+        self.Settings.FreePortfolioValuePercentage = 0.05
 
     
     def OnData(self, data: Slice):
         # check whether 30 days since the last exit have elapsed
-        if (self.Time - self.stopMarketOrderFillTime).days < 30:
+        if (self.Time - self.stopMarketOrderFillTime).days < 7:
             return
 
         price = self.Securities[self.qqq].Price
 
         # send limit order (buy)
+        # an order ticket is the object you get after creating an object of any kind: tracks, accesses, edits order
+        # this is returned in stead of an order object because order execution is asynchronous
         if not self.Portfolio.Invested and not self.Transactions.GetOpenOrders(self.qqq):
             quantity = self.CalculateOrderQuantity(self.qqq, 0.9)
             self.entryTicket = self.LimitOrder(self.qqq, quantity, price, "Entry order")
@@ -57,7 +63,7 @@ class TradingStrategy2(QCAlgorithm):
                 self.stopMarketTicket.Update(updateFields)
 
     
-    # to send out a stop loss order
+    # The onOrderEvent handler is called on every order event. Used here to send out a stop loss order
     def OnOrderEvent(self, orderEvent):
         if orderEvent.Status != OrderStatus.Filled:
             return
@@ -67,5 +73,7 @@ class TradingStrategy2(QCAlgorithm):
             self.stopMarketTicket = self.StopMarketOrder(self.qqq, -self.entryTicket.Quantity,
                                             0.95 * self.entryTicket.AverageFillPrice)
 
-
-        # save fill time of stop loss order
+        # save fill time of stop loss order: case where stop market order has been filled
+        if self.StopMarketTicket is not None and self.stopMarketTicket.OrderId == orderEvent.OrderId:
+            self.stopMarketOrderFillTime = self.Time
+            self.higherPrice = 0  # since QQQ price may be lower a week from now
